@@ -64,5 +64,5 @@ mod tests {
 }
 
 fn main() {
-    solve_file::<u64, Day1Solver>("day1.txt");
+    solve_file::<Day1Solver, u64>("day1.txt");
 }

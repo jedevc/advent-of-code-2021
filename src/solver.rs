@@ -8,7 +8,7 @@ pub trait Solver<T> {
     fn solve2(&self) -> Option<T>;
 }
 
-pub fn solve<T: Display, S: Solver<T>>(problem: &str) {
+pub fn solve<S: Solver<T>, T: Display>(problem: &str) {
     let solver = S::new(problem);
     if let Some(result1) = solver.solve1() {
         println!("part 1: {}", result1);
@@ -18,9 +18,9 @@ pub fn solve<T: Display, S: Solver<T>>(problem: &str) {
     }
 }
 
-pub fn solve_file<T: Display, S: Solver<T>>(filename: &str) {
+pub fn solve_file<S: Solver<T>, T: Display>(filename: &str) {
     let filename = Path::new("resources").join(filename);
     let problem = fs::read_to_string(filename).unwrap();
     let problem = problem.trim();
-    solve::<T, S>(&problem);
+    solve::<S, T>(&problem);
 }

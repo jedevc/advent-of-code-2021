@@ -32,7 +32,9 @@ impl Board {
         }
         Self { data }
     }
+
     fn unmarked(&self) -> u64 {
+        // calculate sum of unmarked numbers in board, used as part of scoring
         let mut sum = 0;
         for i in 0..5 {
             for j in 0..5 {
@@ -48,7 +50,10 @@ impl Board {
         for i in 0..5 {
             for j in 0..5 {
                 if self.data[i][j] == Some(value) {
+                    // mark item as used
                     self.data[i][j] = None;
+
+                    // scan horizontally to see if row is complete
                     let mut won = true;
                     for di in 0..5 {
                         if self.data[di][j] != None {
@@ -60,6 +65,7 @@ impl Board {
                         return true;
                     }
 
+                    // scan vertically to see if column is complete
                     let mut won = true;
                     for dj in 0..5 {
                         if self.data[i][dj] != None {
@@ -105,6 +111,7 @@ impl Solver<u64> for Day4Solver {
         for x in &self.draws {
             for board in &mut boards {
                 if board.mark(*x) {
+                    // first board with a line wins
                     return Some(x * board.unmarked());
                 }
             }
@@ -123,6 +130,7 @@ impl Solver<u64> for Day4Solver {
                 if let Some(board) = &mut boards[i] {
                     if board.mark(*x) {
                         if in_play == 1 {
+                            // last board with a line wins
                             return Some(x * board.unmarked());
                         } else {
                             boards[i] = None;

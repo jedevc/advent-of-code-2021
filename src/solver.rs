@@ -19,8 +19,13 @@ pub fn solve<S: Solver<T>, T: Display>(problem: &str) {
 }
 
 pub fn solve_file<S: Solver<T>, T: Display>(filename: &str) {
+    let problem = load_file(filename);
+    solve::<S, T>(&problem);
+}
+
+pub fn load_file(filename: &str) -> String {
     let filename = Path::new("resources").join(filename);
     let problem = fs::read_to_string(filename).unwrap();
     let problem = problem.trim();
-    solve::<S, T>(&problem);
+    problem.to_string()
 }

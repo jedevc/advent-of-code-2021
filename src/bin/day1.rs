@@ -41,7 +41,7 @@ impl Day1Solver {
 }
 
 #[cfg(test)]
-mod tests {
+mod day1tests {
     use super::*;
 
     static EXAMPLE: [u64; 10] = [199, 200, 208, 210, 200, 207, 240, 269, 260, 263];

@@ -73,7 +73,7 @@ fn common_numbers(numbers: &[u64], idx: u8, default: bool) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+mod day3tests {
     use super::*;
 
     static EXAMPLE: [u64; 12] = [

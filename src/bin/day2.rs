@@ -64,7 +64,7 @@ impl Solver<i64> for Day2Solver {
 }
 
 #[cfg(test)]
-mod tests {
+mod day2tests {
     use super::*;
 
     static EXAMPLE: [Command; 6] = [

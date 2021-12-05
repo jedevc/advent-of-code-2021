@@ -148,7 +148,7 @@ impl Solver<u64> for Day4Solver {
 impl Day4Solver {}
 
 #[cfg(test)]
-mod tests {
+mod day4tests {
     extern crate test;
 
     use super::*;

@@ -35,35 +35,57 @@ impl Solver<u64> for Day14Solver {
 
 impl Day14Solver {
     fn solve(&self, steps: usize) -> u64 {
-        let result: Vec<char> = self.template.chars().collect();
-        let result: Vec<char> = (0..steps).fold(result, |acc, i| { println!("{}", i); self.step(&acc) });
-        let histogram = result.iter().fold(HashMap::new(), |mut acc, ch| {
-            let counter = acc.entry(ch).or_insert(0);
+        let pairs = self.template.chars().zip(self.template.chars().skip(1));
+        let pairs = pairs.fold(HashMap::new(), |mut acc, k| {
+            let counter = acc.entry(k).or_insert(0);
             *counter += 1;
             acc
         });
+        let first = self.template.chars().next().unwrap();
+        let last = self.template.chars().last().unwrap();
 
-        let (_, min_count) = histogram
+        let result = (0..steps).fold(pairs, |acc, _| self.step(&acc));
+
+        let histogram = result
+            .iter()
+            .fold(HashMap::new(), |mut acc, ((a, b), count)| {
+                let counter = acc.entry(a).or_insert(0);
+                *counter += count;
+                let counter = acc.entry(b).or_insert(0);
+                *counter += count;
+                acc
+            });
+
+        let (min_ch, min_count) = histogram
             .iter()
             .min_by(|(_, v1), (_, v2)| v1.cmp(v2))
             .unwrap();
-        let (_, max_count) = histogram
+        let (max_ch, max_count) = histogram
             .iter()
             .max_by(|(_, v1), (_, v2)| v1.cmp(v2))
             .unwrap();
+        let (mut min_count, mut max_count) = (min_count / 2, max_count / 2);
+        if **min_ch == first || **min_ch == last {
+            min_count += 1;
+        }
+        if **max_ch == first || **max_ch == last {
+            max_count += 1;
+        }
+
         max_count - min_count
     }
 
-    fn step(&self, template: &[char]) -> Vec<char> {
-        let mut new = vec![];
-        for (a, b) in template.iter().zip(template.iter().skip(1)) {
-            new.push(*a);
+    fn step(&self, pairs: &HashMap<(char, char), u64>) -> HashMap<(char, char), u64> {
+        let mut result = HashMap::new();
+        for ((a, b), count) in pairs {
             if let Some(c) = self.table.get(&(*a, *b)) {
-                new.push(*c);
+                let counter = result.entry((*a, *c)).or_insert(0);
+                *counter += count;
+                let counter = result.entry((*c, *b)).or_insert(0);
+                *counter += count;
             }
         }
-        new.push(*template.last().unwrap());
-        new
+        result
     }
 }
 

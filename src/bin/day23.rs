@@ -43,6 +43,13 @@ impl Solver<u64> for Day23Solver {
         let target = Map::parse(TARGET);
         let map = Map::parse(&self.problem);
 
+        // let state = State::new(map, &target);
+        // let state = &state.expand()[0];
+        // for i in state.expand() {
+        //     println!("{}", i.map);
+        // }
+        // None
+
         let state = self.solve(&map, &target).unwrap();
         Some(state.cost as u64)
     }
@@ -72,7 +79,6 @@ impl Day23Solver {
             if visited.contains(&state.map) {
                 continue;
             }
-            println!("{}", state.cost);
 
             if &state.map == target {
                 return Some(state);
@@ -136,14 +142,30 @@ impl fmt::Display for Pod {
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct Map {
     width: usize,
-    data: Vec<Pod>,
+    height: usize,
+    basis: Vec<Pod>,
+}
+
+impl fmt::Display for Map {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for j in 0..self.height {
+            for i in 0..self.width {
+                write!(f, "{}", self.get(j, i))?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
 }
 
 impl Map {
     fn parse(data: &str) -> Self {
+        let data = data.trim();
+
         let width = data.find('\n').unwrap();
-        let data = data
-            .trim()
+        let height = data.chars().filter(|ch| *ch == '\n').count() + 1;
+
+        let data: Vec<_> = data
             .split("\n")
             .flat_map(|line| {
                 let mut line: Vec<Pod> = line
@@ -165,19 +187,25 @@ impl Map {
             })
             .collect();
 
-        Self { data, width }
-    }
-}
-
-impl fmt::Display for Map {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (i, pod) in self.data.iter().enumerate() {
-            write!(f, "{}", pod)?;
-            if i % self.width == 1 {
-                writeln!(f)?;
-            }
+        Self {
+            basis: data,
+            width,
+            height,
         }
-        Ok(())
+    }
+
+    fn get(&self, y: usize, x: usize) -> Pod {
+        let y = y * self.width;
+        self.basis[x + y]
+    }
+
+    fn set(&mut self, y: usize, x: usize, pod: Pod) {
+        let y = y * self.width;
+        self.basis[x + y] = pod;
+    }
+
+    fn empty(&mut self, y: usize, x: usize) {
+        self.set(y, x, Pod::Empty);
     }
 }
 
@@ -199,74 +227,74 @@ impl<'a> State<'a> {
 
     fn expand(&self) -> Vec<State<'a>> {
         let mut states = vec![];
-        let width = self.map.width;
 
-        for n in 0..self.map.data.len() {
-            if self.map.data[n].is_pod() {
-                // find all reachable locations
-                let mut visited = HashMap::new();
-                let mut stack = vec![(n, 0)];
-                while stack.len() > 0 {
-                    let (m, dist) = stack.pop().unwrap();
-                    if let Some(old_dist) = visited.get(&m) {
-                        if *old_dist < dist {
-                            continue;
+        for y in 0..self.map.height {
+            for x in 0..self.map.width {
+                let pod = self.map.get(y, x);
+                if pod.is_pod() {
+                    // find all reachable locations
+                    let mut visited = HashMap::new();
+                    let mut stack = vec![(y, x, 0)];
+                    while stack.len() > 0 {
+                        let (j, i, dist) = stack.pop().unwrap();
+                        if let Some(old_dist) = visited.get(&(j, i)) {
+                            if *old_dist < dist {
+                                continue;
+                            }
+                        }
+                        visited.insert((j, i), dist);
+                        if self.map.get(j + 1, i) == Pod::Empty {
+                            stack.push((j + 1, i, dist + 1));
+                        }
+                        if self.map.get(j - 1, i) == Pod::Empty {
+                            stack.push((j - 1, i, dist + 1));
+                        }
+                        if self.map.get(j, i + 1) == Pod::Empty {
+                            stack.push((j, i + 1, dist + 1));
+                        }
+                        if self.map.get(j, i - 1) == Pod::Empty {
+                            stack.push((j, i - 1, dist + 1));
                         }
                     }
-                    visited.insert(m, dist);
-                    if self.map.data[m + width] == Pod::Empty {
-                        stack.push((m + width, dist + 1));
-                    }
-                    if self.map.data[m - width] == Pod::Empty {
-                        stack.push((m - width, dist + 1));
-                    }
-                    if self.map.data[m + 1] == Pod::Empty {
-                        stack.push((m + 1, dist + 1));
-                    }
-                    if self.map.data[m - 1] == Pod::Empty {
-                        stack.push((m - 1, dist + 1));
-                    }
-                }
-                visited.remove(&n);
+                    visited.remove(&(y, x));
 
-                for (m, dist) in visited {
-                    if self.map.data[n - width] == Pod::Wall {
-                        // pod in the corridor...
-                        if self.map.data[n] != self.target.data[m] {
-                            // ...cannot end up in not it's room
+                    for ((j, i), dist) in visited {
+                        if self.map.get(y - 1, x) == Pod::Wall {
+                            // pod in the corridor...
+                            if pod != self.target.get(j, i) {
+                                // ...cannot end up in not it's room
+                                continue;
+                            }
+                        } else if self.target.get(j, i) != Pod::Empty {
+                            // all other pods going into a room...
+                            if pod != self.target.get(j, i) {
+                                // ...cannot end up in not it's room
+                                continue;
+                            }
+                        }
+
+                        // pods cannot share types
+                        if self.map.get(j + 1, i).is_pod() && pod != self.map.get(j + 1, i) {
                             continue;
                         }
-                    } else if self.target.data[m] != Pod::Empty {
-                        // all other pods going into a room...
-                        if self.map.data[n] != self.target.data[m] {
-                            // ...cannot end up in not it's room
+
+                        // pod cannot end up in room entrance
+                        if self.map.get(j - 1, i) == Pod::Wall
+                            && self.map.get(j + 1, i) != Pod::Wall
+                        {
                             continue;
                         }
-                    }
 
-                    // pods cannot share types
-                    if self.map.data[m + width].is_pod()
-                        && self.map.data[n] != self.map.data[m + width]
-                    {
-                        continue;
+                        let mut map = self.map.clone();
+                        map.set(j, i, pod);
+                        map.empty(y, x);
+                        let cost = self.cost + dist * pod.cost();
+                        states.push(State {
+                            map,
+                            cost,
+                            target: self.target,
+                        })
                     }
-
-                    // pod cannot end up in room entrance
-                    if self.map.data[m - width] == Pod::Wall
-                        && self.map.data[m + width] != Pod::Wall
-                    {
-                        continue;
-                    }
-
-                    let mut map = self.map.clone();
-                    map.data[m] = self.map.data[n];
-                    map.data[n] = Pod::Empty;
-                    let cost = self.cost + dist * map.data[m].cost();
-                    states.push(State {
-                        map,
-                        cost,
-                        target: self.target,
-                    })
                 }
             }
         }
@@ -303,14 +331,14 @@ mod day23tests {
     #[test]
     fn test_parse() {
         let map = Map::parse(EXAMPLE_DATA.trim());
-        assert_eq!(map.data[2 * map.width + 3], Pod::B);
-        assert_eq!(map.data[3 * map.width + 3], Pod::A);
-        assert_eq!(map.data[2 * map.width + 5], Pod::C);
-        assert_eq!(map.data[3 * map.width + 5], Pod::D);
-        assert_eq!(map.data[2 * map.width + 7], Pod::B);
-        assert_eq!(map.data[3 * map.width + 7], Pod::C);
-        assert_eq!(map.data[2 * map.width + 9], Pod::D);
-        assert_eq!(map.data[3 * map.width + 9], Pod::A);
+        assert_eq!(map.get(2, 3), Pod::B);
+        assert_eq!(map.get(3, 3), Pod::A);
+        assert_eq!(map.get(2, 5), Pod::C);
+        assert_eq!(map.get(3, 5), Pod::D);
+        assert_eq!(map.get(2, 7), Pod::B);
+        assert_eq!(map.get(3, 7), Pod::C);
+        assert_eq!(map.get(2, 9), Pod::D);
+        assert_eq!(map.get(3, 9), Pod::A);
     }
 
     #[test]

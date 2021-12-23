@@ -274,7 +274,9 @@ impl<'a> State<'a> {
                         }
 
                         // pods cannot share types
-                        if self.map.get(j + 1, i).is_pod() && pod != self.map.get(j + 1, i) {
+                        if (j + 1..self.map.height)
+                            .any(|j| self.map.get(j, i).is_pod() && pod != self.map.get(j, i))
+                        {
                             continue;
                         }
 

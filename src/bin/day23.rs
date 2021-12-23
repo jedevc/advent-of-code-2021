@@ -1,6 +1,6 @@
-use std::fmt;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet, BinaryHeap};
+use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::fmt;
 
 use indoc::indoc;
 
@@ -34,7 +34,9 @@ static TARGET2: &'static str = indoc!(
 
 impl Solver<u64> for Day23Solver {
     fn new(problem: &str) -> Self {
-        Self { problem: problem.to_owned() }
+        Self {
+            problem: problem.to_owned(),
+        }
     }
 
     fn solve1(&self) -> Option<u64> {
@@ -52,7 +54,7 @@ impl Solver<u64> for Day23Solver {
         lines.insert(3, "  #D#C#B#A#");
         lines.insert(4, "  #D#B#A#C#");
         let problem = lines.join("\n");
-        
+
         let map = Map::parse(&problem);
 
         let state = self.solve(&map, &target).unwrap();
@@ -65,7 +67,7 @@ impl Day23Solver {
         let mut visited = HashSet::new();
         let mut candidates = BinaryHeap::new();
         candidates.push(State::new(map.clone(), target));
-        
+
         while let Some(state) = candidates.pop() {
             if visited.contains(&state.map) {
                 continue;
@@ -73,7 +75,7 @@ impl Day23Solver {
             println!("{}", state.cost);
 
             if &state.map == target {
-                return Some(state)
+                return Some(state);
             }
 
             for next in state.expand() {
@@ -133,16 +135,19 @@ impl fmt::Display for Pod {
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct Map {
-    data: Vec<Vec<Pod>>,
+    width: usize,
+    data: Vec<Pod>,
 }
 
 impl Map {
     fn parse(data: &str) -> Self {
+        let width = data.find('\n').unwrap();
         let data = data
             .trim()
             .split("\n")
-            .map(|line| {
-                line.chars()
+            .flat_map(|line| {
+                let mut line: Vec<Pod> = line
+                    .chars()
                     .map(|ch| match ch {
                         'A' => Pod::A,
                         'B' => Pod::B,
@@ -152,21 +157,25 @@ impl Map {
                         ' ' | '.' => Pod::Empty,
                         _ => unreachable!(),
                     })
-                    .collect()
+                    .collect();
+                while line.len() < width {
+                    line.push(Pod::Empty);
+                }
+                line
             })
             .collect();
 
-        Self { data }
+        Self { data, width }
     }
 }
 
 impl fmt::Display for Map {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for line in &self.data {
-            for pod in line {
-                write!(f, "{}", pod)?;
+        for (i, pod) in self.data.iter().enumerate() {
+            write!(f, "{}", pod)?;
+            if i % self.width == 1 {
+                writeln!(f)?;
             }
-            writeln!(f)?;
         }
         Ok(())
     }
@@ -190,72 +199,74 @@ impl<'a> State<'a> {
 
     fn expand(&self) -> Vec<State<'a>> {
         let mut states = vec![];
-        for x in 0..self.map.data.len() {
-            for y in 0..self.map.data[x].len() {
-                if self.map.data[x][y].is_pod() {
-                    // find all reachable locations
-                    let mut visited = HashMap::new();
-                    let mut stack = vec![((x, y), 0)];
-                    while stack.len() > 0 {
-                        let ((i, j), dist) = stack.pop().unwrap();
-                        if let Some(old_dist) = visited.get(&(i, j)) {
-                            if *old_dist < dist {
-                                continue;
-                            }
-                        }
-                        visited.insert((i, j), dist);
-                        if self.map.data[i + 1][j] == Pod::Empty {
-                            stack.push(((i + 1, j), dist + 1));
-                        }
-                        if self.map.data[i - 1][j] == Pod::Empty {
-                            stack.push(((i - 1, j), dist + 1));
-                        }
-                        if self.map.data[i][j + 1] == Pod::Empty {
-                            stack.push(((i, j + 1), dist + 1));
-                        }
-                        if self.map.data[i][j - 1] == Pod::Empty {
-                            stack.push(((i, j - 1), dist + 1));
-                        }
-                    }
-                    visited.remove(&(x, y));
+        let width = self.map.width;
 
-                    for ((i, j), dist) in visited {
-                        if self.map.data[x - 1][y] == Pod::Wall {
-                            // pod in the corridor...
-                            if self.map.data[x][y] != self.target.data[i][j] {
-                                // ...cannot end up in not it's room
-                                continue;
-                            }
-                        } else if self.target.data[i][j] != Pod::Empty {
-                            // all other pods going into a room...
-                            if self.map.data[x][y] != self.target.data[i][j] {
-                                // ...cannot end up in not it's room
-                                continue;
-                            }
-                        }
-
-                        // pods cannot share types
-                        if self.map.data[i + 1][j].is_pod() && self.map.data[x][y] != self.map.data[i + 1][j] {
+        for n in 0..self.map.data.len() {
+            if self.map.data[n].is_pod() {
+                // find all reachable locations
+                let mut visited = HashMap::new();
+                let mut stack = vec![(n, 0)];
+                while stack.len() > 0 {
+                    let (m, dist) = stack.pop().unwrap();
+                    if let Some(old_dist) = visited.get(&m) {
+                        if *old_dist < dist {
                             continue;
                         }
+                    }
+                    visited.insert(m, dist);
+                    if self.map.data[m + width] == Pod::Empty {
+                        stack.push((m + width, dist + 1));
+                    }
+                    if self.map.data[m - width] == Pod::Empty {
+                        stack.push((m - width, dist + 1));
+                    }
+                    if self.map.data[m + 1] == Pod::Empty {
+                        stack.push((m + 1, dist + 1));
+                    }
+                    if self.map.data[m - 1] == Pod::Empty {
+                        stack.push((m - 1, dist + 1));
+                    }
+                }
+                visited.remove(&n);
 
-                        // pod cannot end up in room entrance
-                        if self.map.data[i - 1][j] == Pod::Wall
-                            && self.map.data[i + 1][j] != Pod::Wall
-                        {
+                for (m, dist) in visited {
+                    if self.map.data[n - width] == Pod::Wall {
+                        // pod in the corridor...
+                        if self.map.data[n] != self.target.data[m] {
+                            // ...cannot end up in not it's room
                             continue;
                         }
-
-                        let mut map = self.map.clone();
-                        map.data[i][j] = self.map.data[x][y];
-                        map.data[x][y] = Pod::Empty;
-                        let cost = self.cost + dist * map.data[i][j].cost();
-                        states.push(State {
-                            map,
-                            cost,
-                            target: self.target,
-                        })
+                    } else if self.target.data[m] != Pod::Empty {
+                        // all other pods going into a room...
+                        if self.map.data[n] != self.target.data[m] {
+                            // ...cannot end up in not it's room
+                            continue;
+                        }
                     }
+
+                    // pods cannot share types
+                    if self.map.data[m + width].is_pod()
+                        && self.map.data[n] != self.map.data[m + width]
+                    {
+                        continue;
+                    }
+
+                    // pod cannot end up in room entrance
+                    if self.map.data[m - width] == Pod::Wall
+                        && self.map.data[m + width] != Pod::Wall
+                    {
+                        continue;
+                    }
+
+                    let mut map = self.map.clone();
+                    map.data[m] = self.map.data[n];
+                    map.data[n] = Pod::Empty;
+                    let cost = self.cost + dist * map.data[m].cost();
+                    states.push(State {
+                        map,
+                        cost,
+                        target: self.target,
+                    })
                 }
             }
         }
@@ -292,14 +303,14 @@ mod day23tests {
     #[test]
     fn test_parse() {
         let map = Map::parse(EXAMPLE_DATA.trim());
-        assert_eq!(map.data[2][3], Pod::B);
-        assert_eq!(map.data[3][3], Pod::A);
-        assert_eq!(map.data[2][5], Pod::C);
-        assert_eq!(map.data[3][5], Pod::D);
-        assert_eq!(map.data[2][7], Pod::B);
-        assert_eq!(map.data[3][7], Pod::C);
-        assert_eq!(map.data[2][9], Pod::D);
-        assert_eq!(map.data[3][9], Pod::A);
+        assert_eq!(map.data[2 * map.width + 3], Pod::B);
+        assert_eq!(map.data[3 * map.width + 3], Pod::A);
+        assert_eq!(map.data[2 * map.width + 5], Pod::C);
+        assert_eq!(map.data[3 * map.width + 5], Pod::D);
+        assert_eq!(map.data[2 * map.width + 7], Pod::B);
+        assert_eq!(map.data[3 * map.width + 7], Pod::C);
+        assert_eq!(map.data[2 * map.width + 9], Pod::D);
+        assert_eq!(map.data[3 * map.width + 9], Pod::A);
     }
 
     #[test]
